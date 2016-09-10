@@ -1,0 +1,91 @@
+All server/client communication is JSON dicts.
+
+Server specific keys:
+  command - Tell the server to do something.
+
+Client specific keys:
+  event - Tell the client something happened.
+  error - Tell the client if there was a problem.  May have a "message" key.
+
+Most commands have a corresponding event, which acts as an acknowledgement to
+the client that the command succeeded, or if the server had some other sort of
+state change.  The purpose of this is to make sure the client always has the
+same state as the server, as they share much of the same internal logic.
+
+Any arguments with a value listed here are optional, with their default value
+listed.
+
+Foreign keys in server commands are ignored, and if the command is to be sent
+back as an event, they're passed back.
+
+Common commands/events:
+  new-playlists - Adds new playlists.
+    [playlists (dict)] - List of playlist dicts.
+      name (str)- Playlist name.
+      loop (bool)=False - Whether the playlist should loop.
+      random (bool)=False - Whether the playlist should have random play.
+
+  delete-playlists - Deletes playlists.
+    [playlists (str)] - List of names of playlists to delete.
+
+  add-entries - Add entries to a playlist.
+    playlist (str) - Name of playlist to add entries to.
+    [entries (dict)] - List of entry dicts.
+      name (str) - Entry name.
+      played (bool)=False - Whether the entry has been played. (Excluded from
+                            random play.)
+
+  delete-entries - Delete entries from a playlist.
+    playlist (str) - Name of playlist to delete entries from.
+    [entries (int)] - List of indexes to delete.
+
+  cue-playlist - Specify playlist to play next.  Empty playlists cannot be
+                 selected.
+    playlist (str) - Name of playlist to cue.
+
+  cue-item - Specify item to play next in a playlist.  Not necessarily the next
+             item which will be played.
+    playlist (str) - Name of playlist containing the item to cue.
+    item (int) - Index of the item which is to be cued.
+
+  set-random - Specify random playback state for a playlist.
+    playlist (str) - Name of playlist to set state for.
+    value=Toggle (bool) - Value to set state to.
+
+  set-looping - Specify looping playback state for a playlist.
+    playlist (str) - Name of playlist to set state for.
+    value=Toggle (bool) - Value to set state to.
+
+  set-mpv-opts - Set command line parameters to send to MPV.
+    {opts} - Keys are arguments and values are paraneters passed to those
+             arguments.  If a parameter is missing, it's assumed to be "yes".
+
+  keep-alive - Keeps the connection alive. (No arguments.)
+
+Server specific commands:
+  get-all-state - Responds with all state as events.
+
+  disconnect - Closes the socket.
+
+  play - Plays the next cued item.
+
+  stop - Stops playback.
+
+  run-mpv - Starts an MPV process.
+
+  terminate-mpv - Terminates an active MPV process.
+
+  quit - Stops the server.
+
+Client-specific events:
+  mpv-started - MPV has started.
+
+  mpv-terminated - MPV has stopped from a 'terminate-mpv' command.
+
+  mpv-unexpected-termination - MPV terminated unexpectedly.
+
+  playing - An item started playing.
+    playlist (str) - Playlist which the playing item is in.
+    item - Index in to the playlist of the item which is playing.
+
+  stopped - Playback has stopped.
