@@ -175,6 +175,8 @@ class MPVVJState:
   def deletePlaylist(self, idx):
     if(self.currentPlaylist == idx):
       self.currentPlaylist = None
+    elif(self.currentPlaylist > idx):
+      self.currentPlaylist -= 1
     del self.playlists[idx]
 
   def deletePlaylists(self, obj):
