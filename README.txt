@@ -35,13 +35,15 @@ Middle - views
       Add - Add a playlist
     List
       "S" - State ("C" - Cued)
-      "R" - Random play
-      "L" - Looping play
+      "Name" - Name
+      "R" - Random play (Double click to toggle)
+      "L" - Looping play (Double click to toggle)
       Keys:
         L - View selected playlist in left view
         R - View selected playlist in right view
-        C - Cue selected playlist
+        C - Cue selected playlist (Empty playlists can't be cued)
         D - Delete selected playlists
+        CTRL+F - Search
   Middle - First playlist view
     Toolbar
       Add URL - Add a URL
@@ -49,12 +51,14 @@ Middle - views
     Current playlist
     List of items
       "S" - State ("C" - Cued, "P" - Playing)
-      "P" - Played (Won't be selected for random play)
+      "Name" - Name
+      "P" - Played (Won't be selected for random play) (Double click to toggle)
       Keys:
         Double click - Cue this playlist and item and play immediately
         C - Cue selected item for this playlist (Won't necessarily be played
             next unless this playlist is cued as well)
         D - Delete selected items
+        CTRL+F - Search
   Right - Second playlist view, same as first
 
 Bottom - log

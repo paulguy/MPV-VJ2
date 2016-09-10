@@ -71,11 +71,7 @@ class MainWindow(Gtk.Window):
 
   def setSensitive(self, sensitive):
     if(sensitive == False):
-      self.playlistsListStore.clear()
-      self.playlist1ListStore.clear()
-      self.playlist2ListStore.clear()
-      self.playlist1Label.set_text("")
-      self.playlist2Label.set_text("")
+      self.clearState()
       self.mpvBtn.set_sensitive(False)
       self.playBtn.set_sensitive(False)
       self.stopBtn.set_sensitive(False)
@@ -126,6 +122,14 @@ class MainWindow(Gtk.Window):
     else:
       playlistView.get_children()[1].set_text("")
 
+  def playlistListActivated(self, playlistList, row, column):
+    model, rows = playlistList.get_selection().get_selected_rows()
+
+    if(column.get_title() == "R"):
+      self.client.toggleRandom(model[rows[0].get_indices()[0]][1])
+    elif(column.get_title() == "L"):
+      self.client.toggleLooping(model[rows[0].get_indices()[0]][1])
+
   def playlistItemActions(self, playlistList, event):
     model, rows = playlistList.get_selection().get_selected_rows()
 
@@ -135,41 +139,47 @@ class MainWindow(Gtk.Window):
     if(event.type == Gdk.EventType.KEY_PRESS):
       if(event.keyval == Gdk.KEY_l):
         if(len(rows) == 1):
-          pl = model.get_value(model.get_iter(rows[0]), 1)
+          pl = model[rows[0].get_indices()[0]][1]
+          #pl = model.get_value(model.get_iter(rows[0]), 1)
           if(self.playlist2Label.get_text() == pl):
             return(False)
           self.refreshPlaylistView(self.playlist1View, pl)
       elif(event.keyval == Gdk.KEY_r):
         if(len(rows) == 1):
-          pl = model.get_value(model.get_iter(rows[0]), 1)
+          pl = model[rows[0].get_indices()[0]][1]
+          #pl = model.get_value(model.get_iter(rows[0]), 1)
           if(self.playlist1Label.get_text() == pl):
             return(False)
           self.refreshPlaylistView(self.playlist2View, pl)
       elif(event.keyval == Gdk.KEY_c):
         if(len(rows) == 1):
-          pl = model.get_value(model.get_iter(rows[0]), 1)
+          pl = model[rows[0].get_indices()[0]][1]
+          #pl = model.get_value(model.get_iter(rows[0]), 1)
           self.client.cuePlaylist(pl)
       elif(event.keyval == Gdk.KEY_d):
         pls = []
         for row in rows:
-          pls.append(model.get_value(model.get_iter(row), 1))
+          pls.append(model[rows[0].get_indices()[0]][1])
+          #pls.append(model.get_value(model.get_iter(row), 1))
         self.client.deletePlaylists(pls)
     return(False)
 
-  def playlistActions(self, playlistView, event, label):
-    playlist = playlistView.get_children()[2].get_children()[0]
+  def playlistActivated(self, playlist, row, column, label):
+    idx = row.get_indices()[0]
+    if(column.get_title() == "P"):
+      pl = label.get_text()
+      self.client.togglePlayed(pl, idx)
+    else:
+      pl = label.get_text()
+      self.client.cuePlaylist(pl)
+      self.client.cueEntry(pl, row.get_indices()[0])
+      self.client.playMedia()
+
+  def playlistActions(self, playlist, event, label):
     model, rows = playlist.get_selection().get_selected_rows()
 
     if(len(rows) == 0):
       return(False)
-
-    if(event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS):
-      if(event.button == 1):
-        if(len(rows) == 1):
-          pl = label.get_text()
-          self.client.cuePlaylist(pl)
-          self.client.cueEntry(pl, rows[0].get_indices()[0])
-          self.client.playMedia()
 
     if(event.type == Gdk.EventType.KEY_PRESS):
       if(event.keyval == Gdk.KEY_c):
@@ -213,6 +223,9 @@ class MainWindow(Gtk.Window):
     self.stopBtn.set_sensitive(False)
     self.client.stopMedia()
 
+  def newSession(self, button):
+    self.client.newSession()
+
   # event inputs
 
   def newPlaylists(self, obj):
@@ -239,7 +252,8 @@ class MainWindow(Gtk.Window):
             self.refreshPlaylistView(self.playlist1View, None)
           elif(self.playlist2Label.get_text() == pl):
             self.refreshPlaylistView(self.playlist2View, None)
-          self.playlistsListStore.remove(row.iter)
+          del playlsitsListStore[row.get_indices()[0]]
+          #self.playlistsListStore.remove(row.iter)
 
   def setCurrentPlaylist(self, obj):
     for row in self.playlistsListStore:
@@ -386,6 +400,51 @@ class MainWindow(Gtk.Window):
   def haveOpts(self):
     self.mpvOptsBtn.set_sensitive(True)    
 
+  def clearState(self):
+    self.playlistsListStore.clear()
+    self.playlist1ListStore.clear()
+    self.playlist2ListStore.clear()
+    self.playlist1Label.set_text("")
+    self.playlist2Label.set_text("")
+
+  def setPlayed(self, obj):
+    playlist = None
+    if(self.playlist1Label.get_text() == obj['playlist']):
+      playlist = self.playlist1ListStore
+    elif(self.playlist2Label.get_text() == obj['playlist']):
+      playlist = self.playlist2ListStore
+    
+    if(playlist != None):
+      if(obj['value'] == True):
+          playlist[obj['item']][2] = 'Y'
+      else:
+          playlist[obj['item']][2] = 'N'
+
+  def setRandom(self, obj):
+    plRow = None
+    for row in self.playlistsListStore:
+      print(row[1])
+      if(row[1] == obj['playlist']):
+        plRow = row
+        break
+    
+    if(obj['value'] == True):
+        plRow[2] = 'Y'
+    else:
+        plRow[2] = 'N'
+
+  def setLooping(self, obj):
+    plRow = None
+    for row in self.playlistsListStore:
+      if(row[1] == obj['playlist']):
+        plRow = row
+        break
+    
+    if(obj['value'] == True):
+        plRow[3] = 'Y'
+    else:
+        plRow[3] = 'N'
+
   def __init__(self, client):
     Gtk.Window.__init__(self, title="MPV-VJ 2")
     self.client = client
@@ -424,6 +483,7 @@ class MainWindow(Gtk.Window):
     self.playlistsView.pack_start(scroll, True, True, 0)    
     self.addBtn.connect('clicked', self.newPlaylist)
     self.playlistsList.connect('key-press-event', self.playlistItemActions)
+    self.playlistsList.connect('row-activated', self.playlistListActivated)
 
     self.playlist1View = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
     self.playlist1Bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
@@ -458,8 +518,8 @@ class MainWindow(Gtk.Window):
     scroll.add(self.playlist1List)
     self.playlist1View.pack_start(scroll, True, True, 0)    
     self.addUrl1Btn.connect('clicked', self.addURL, self.playlist1Label)
-    self.playlist1View.connect('key-press-event', self.playlistActions, self.playlist1Label)
-    self.playlist1View.connect('button-press-event', self.playlistActions, self.playlist1Label)
+    self.playlist1List.connect('key-press-event', self.playlistActions, self.playlist1Label)
+    self.playlist1List.connect('row-activated', self.playlistActivated, self.playlist1Label)
 
     self.playlist2View = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
     self.playlist2Bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
@@ -494,8 +554,8 @@ class MainWindow(Gtk.Window):
     scroll.add(self.playlist2List)
     self.playlist2View.pack_start(scroll, True, True, 0)    
     self.addUrl2Btn.connect('clicked', self.addURL, self.playlist2Label)
-    self.playlist2View.connect('key-press-event', self.playlistActions, self.playlist2Label)
-    self.playlist2View.connect('button-press-event', self.playlistActions, self.playlist2Label)
+    self.playlist2List.connect('key-press-event', self.playlistActions, self.playlist2Label)
+    self.playlist2List.connect('row-activated', self.playlistActivated, self.playlist2Label)
 
     self.plViewsBox = Gtk.HPaned()
     self.plViewsBox.pack1(self.playlist1View, True, False)
@@ -553,6 +613,9 @@ class MainWindow(Gtk.Window):
     self.stopBtn.set_sensitive(False)
     self.toolBar.pack_start(self.stopBtn, False, False, 0)
 
+    self.newBtn.connect('clicked', self.newSession)
+    #self.saveBtn.connect('clicked', self.saveSession)
+    #self.loadBtn.connect('clicked', self.loadSession)
     self.settingsBtn.connect('clicked', self.editSettings)
     self.mpvOptsBtn.connect('clicked', self.editMpvOpts)
     self.playBtn.connect('clicked', self.playMedia)

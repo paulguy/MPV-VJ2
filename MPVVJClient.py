@@ -31,8 +31,8 @@ import Logger
 # TODO
 # new/save/load (and server)
 # file browsing (and server)
-# manipulate loop/random playback
-# manipulate "played" state
+# manipulate loop/random playback - DONE
+# manipulate "played" state - DONE
 # bugs and crashes
 
 TPS = 20
@@ -173,6 +173,18 @@ class MPVVJClient:
   def sendOpts(self):
     self.sendCommand('set-mpv-opts', {'opts': self.state.mpvopts})
 
+  def newSession(self):
+    self.sendCommand('clear-all')
+
+  def togglePlayed(self, playlist, idx):
+    self.sendCommand('set-played', {'playlist': playlist, 'item': idx})
+
+  def toggleRandom(self, playlist):
+    self.sendCommand('set-random', {'playlist': playlist})
+
+  def toggleLooping(self, playlist):
+    self.sendCommand('set-looping', {'playlist': playlist})
+
   def tick(self, nothing):
     if(self.socket != None):
       obj = self.socket.getJSONAsObj()
@@ -245,18 +257,35 @@ class MPVVJClient:
               self.logger.log(event + ": " + ret)
             else:
               self.win.cueItem(obj)
+          elif(obj['event'] == 'clear-all'):
+            event = obj['event']
+            del obj['event']
+            self.state = MPVVJState.MPVVJState()
+            self.win.clearState()
           elif(obj['event'] == 'set-random'):
             event = obj['event']
             del obj['event']
             ret = self.state.setPlaylistRandom(obj)
             if(ret != None):
               self.logger.log(event + ": " + ret)
+            else:
+              self.win.setRandom(obj)
           elif(obj['event'] == 'set-looping'):
             event = obj['event']
             del obj['event']
             ret = self.state.setPlaylistLooping(obj)
             if(ret != None):
               self.logger.log(event + ": " + ret)
+            else:
+              self.win.setLooping(obj)
+          elif(obj['event'] == 'set-played'):
+            event = obj['event']
+            del obj['event']
+            ret = self.state.setPlaylistLooping(obj)
+            if(ret != None):
+              self.logger.log(event + ": " + ret)
+            else:
+              self.win.setPlayed(obj)
           elif(obj['event'] == 'keep-alive'):
             pass
           elif(obj['event'] == 'mpv-started'):

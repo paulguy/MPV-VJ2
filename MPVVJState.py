@@ -322,6 +322,7 @@ class MPVVJState:
       pass
     if(value == None):
       pl[1].random = not pl[1].random
+      obj['value'] = pl[1].random
     else:
       pl[1].random = value
     return(None)
@@ -343,8 +344,35 @@ class MPVVJState:
       pass
     if(value == None):
       pl[1].loop = not pl[1].loop
+      obj['value'] = pl[1].loop
     else:
       pl[1].loop = value
+    return(None)
+
+  def setPlayed(self, obj):
+    if('playlist' not in obj):
+      return("No 'playlist'.")
+    if(type(obj['playlist']) != str):
+      return("'playlist' is not a string.")
+    pl = self.findPlaylistByName(obj['playlist'])
+    if(pl == None):
+      return("Playlist " + obj['playlist'] + " does not exist.")
+    value = None
+    if('item' not in obj):
+      return("No 'item'.")
+    if(type(obj['item']) != int):
+      return("'item' is not an integer.")
+    try:
+      if(type(obj['value']) != bool):
+        return("'value' is not a bool.")
+      value = obj['value']
+    except KeyError:
+      pass
+    if(value == None):
+      pl[1].entries[obj['item']].played = not pl[1].entries[obj['item']].played
+      obj['value'] = pl[1].entries[obj['item']].played
+    else:
+      pl[1].entries[obj['item']].played = value
     return(None)
 
   def setMpvOpts(self, obj):

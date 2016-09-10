@@ -62,7 +62,6 @@ class MPVVJServer():
 
   def __init__(self):
     self.state = MPVVJState.MPVVJState()
-    self.mpvopts = {}
     self.socket = None
     self.reconnectSocket()
     self.mpv = None
@@ -228,7 +227,7 @@ class MPVVJServer():
 
             current = self.state.getCurrent()
             if(current != None):
-              self.clientCuePlaylsit(current[0])
+              self.clientCuePlaylist(current[0])
 
             if(self.playing == True):
               self.clientPlay(self.current[0], self.current[1])
@@ -298,6 +297,14 @@ class MPVVJServer():
               self.sendFailureResponse(command + ": " + ret)
             else:
               self.sendEventResponse(command, obj)
+          elif(obj['command'] == 'set-played'):
+            command = obj['command']
+            del obj['command']
+            ret = self.state.setPlayed(obj)
+            if(ret != None):
+              self.sendFailureResponse(command + ": " + ret)
+            else:
+              self.sendEventResponse(command, obj)
           elif(obj['command'] == 'set-mpv-opts'):
             command = obj['command']
             del obj['command']
@@ -306,6 +313,11 @@ class MPVVJServer():
               self.sendFailureResponse(command + ": " + ret)
             else:
               self.sendEventResponse(command, obj)            
+          elif(obj['command'] == 'clear-all'):
+            command = obj['command']
+            del obj['command']
+            self.state = MPVVJState.MPVVJState()
+            self.sendEventResponse(command, obj)            
           elif(obj['command'] == 'play'):
             if(self.mpv != None):
               if(self.playing == True):
