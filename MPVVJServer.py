@@ -21,6 +21,8 @@ import time
 import json
 import random
 import signal
+import os
+import os.path
 
 import MPVVJState
 import JSONSocket
@@ -28,10 +30,12 @@ import MPV
 
 # TODO
 # MPV options management - DONE
-# new/save/load (and client)
-# file browsing (and client)
+# new/save/load (and client) - DONE
+# file browsing (and client) - DONE
 # command line arguments (bind address, port, verbose logging, starting directory, ...)
 # probably some more socket stuff as it comes up... - SEEMINGLY DONE!
+# unset all played in playlist (and clioent)
+# playlist organization (and client)
 # bugs and crashes
 
 TPS = 20
@@ -67,6 +71,7 @@ class MPVVJServer():
     self.mpv = None
     self.connected = False
     self.playing = False
+    self.path = os.getcwd()
     signal.signal(signal.SIGHUP, hupHandler)
 
   def reconnectSocket(self):
@@ -132,6 +137,9 @@ class MPVVJServer():
 
   def sendMpvOpts(self):
     self.sendEventResponse('set-mpv-opts', {'opts': self.state.mpvopts})
+
+  def sendFileList(self, path, playlist, dirs, files):
+    self.sendEventResponse('file-list', {'path': path, 'playlist': playlist, 'dirs': dirs, 'files': files})
 
   def clientCuePlaylist(self, name):
     self.sendEventResponse('cue-playlist', {'playlist': name})
@@ -201,8 +209,8 @@ class MPVVJServer():
       obj = None
       try:
         obj = self.socket.getJSONAsObj()
-      except json.decoder.JSONDecodeError as e:
         self.lastAct = time.monotonic()
+      except json.decoder.JSONDecodeError as e:
         self.sendFailureResponse("Bad JSON: " + e.args[0])
       if(obj == None):
         if(time.monotonic() - self.lastAct > MPVVJServer.TIMEOUT):
@@ -359,6 +367,38 @@ class MPVVJServer():
               self.mpv.terminate()
             self.socket.close()
             return(False)
+          elif(obj['command'] == 'list-files'):
+            if('path' in obj):
+              if(type(obj['path']) == str):
+                if('playlist' in obj):
+                  if(type(obj['playlist']) == str):
+                    path = os.path.abspath(obj['path'])
+                    if(path.startswith(self.path)):
+                      path = path[len(self.path):]
+                      path = "." + path
+                      dirs = []
+                      files = []
+                      try:
+                        for item in os.scandir(path):
+                          if(item.is_file() == True):
+                            files.append(item.name)
+                          if(item.is_dir() == True):
+                            dirs.append(item.name)
+                        dirs.sort(key=lambda x: x.lower())
+                        files.sort(key=lambda x: x.lower())
+                        self.sendFileList(path, obj['playlist'], dirs, files)
+                      except FileNotFoundError:
+                        self.sendFailureResponse("File not found.")
+                    else:
+                      self.sendFailureResponse("'playlist' is not a string.")
+                  else:
+                    self.sendFailureResponse("No 'playlist'.")
+                else:
+                  self.sendFailureResponse("'path' outside of application root.")
+              else:
+                self.sendFailureResponse("'path' is not a string.")
+            else:
+              self.sendFailureResponse("No 'path'.")
           elif(obj['command'] == 'keep-alive'):
             self.clientKeepAlive()
           else:

@@ -83,6 +83,10 @@ Server specific commands:
 
   terminate-mpv - Terminates an active MPV process
 
+  list-files - Retrieve a file list
+    path (str) - Path to list
+    playlist (str) - For maintaining the playlist name...
+
   quit - Stops the server
 
 Client-specific events:
@@ -97,3 +101,9 @@ Client-specific events:
     item - Index in to the playlist of the item which is playing
 
   stopped - Playback has stopped
+
+  file-list - Returned list of files
+    path (str) - Path listed
+    playlist (str) - Playlist to add entries to
+    [dirs (str)] - Directory entries
+    [files (str)] - File entries

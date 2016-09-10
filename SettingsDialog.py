@@ -65,8 +65,9 @@ class SettingsDialog(Gtk.Dialog):
       dialog.destroy()
 
   def editEntry(self, listView, row, column):
-    i = self.listStore.get_iter(row)
-    key = self.listStore.get_value(i, 0)
+    #i = self.listStore.get_iter(row)
+    #key = self.listStore.get_value(i, 0)
+    key = self.listStore[0][row.get_indices()[0]]
     if(self.add == True and column.get_title() == "Key"):
       editDialog = PromptDialog.PromptDialog(self, "Edit Key", key)
       editDialog.connect('response', self.editKeyResponse, key)
@@ -92,8 +93,9 @@ class SettingsDialog(Gtk.Dialog):
 
   def delKey(self, button):
     row, column = self.listView.get_cursor()
-    i = self.listStore.get_iter(row)
-    key = self.listStore.get_value(i, 0)
+    #i = self.listStore.get_iter(row)
+    #key = self.listStore.get_value(i, 0)
+    key = self.listStore[0][row.get_indices()[0]]
     del self.options[key]
     self.listStore.remove(i)
 

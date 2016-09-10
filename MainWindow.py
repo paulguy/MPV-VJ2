@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with MPV-VJ2.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import os
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
@@ -26,6 +27,7 @@ from gi.repository import Gio
 
 import PromptDialog
 import SettingsDialog
+import FileListDialog
 
 
 class MainWindow(Gtk.Window):
@@ -118,7 +120,8 @@ class MainWindow(Gtk.Window):
             played = 'Y'
         except KeyError:
           pass
-        playlistStore.append((state, entry[1]['name'], played))
+        filePath, fileName = os.path.split(entry[1]['name'])
+        playlistStore.append((state, fileName, played))
     else:
       playlistView.get_children()[1].set_text("")
 
@@ -151,12 +154,12 @@ class MainWindow(Gtk.Window):
           if(self.playlist1Label.get_text() == pl):
             return(False)
           self.refreshPlaylistView(self.playlist2View, pl)
-      elif(event.keyval == Gdk.KEY_c):
+      elif(event.keyval == Gdk.KEY_Return):
         if(len(rows) == 1):
           pl = model[rows[0].get_indices()[0]][1]
           #pl = model.get_value(model.get_iter(rows[0]), 1)
           self.client.cuePlaylist(pl)
-      elif(event.keyval == Gdk.KEY_d):
+      elif(event.keyval == Gdk.KEY_Delete):
         pls = []
         for row in rows:
           pls.append(model[rows[0].get_indices()[0]][1])
@@ -182,11 +185,11 @@ class MainWindow(Gtk.Window):
       return(False)
 
     if(event.type == Gdk.EventType.KEY_PRESS):
-      if(event.keyval == Gdk.KEY_c):
+      if(event.keyval == Gdk.KEY_Return):
         if(len(rows) == 1):
           pl = label.get_text()
           self.client.cueEntry(pl, rows[0].get_indices()[0])
-      if(event.keyval == Gdk.KEY_d):
+      if(event.keyval == Gdk.KEY_Delete):
         pl = label.get_text()
         items = []
         for row in rows:
@@ -196,9 +199,9 @@ class MainWindow(Gtk.Window):
 
   def addURLResponse(self, dialog, response, playlistLabel):
     if(response == Gtk.ResponseType.OK):
-      self.client.addEntry(playlistLabel.get_text(), dialog.get_text())
+      self.client.addEntries(playlistLabel.get_text(), [dialog.get_text()])
     if(response != Gtk.ResponseType.DELETE_EVENT):
-      dialog.destroy()    
+      dialog.destroy()
 
   def addURL(self, button, playlistLabel):
     if(playlistLabel.get_text() == ''):
@@ -226,6 +229,42 @@ class MainWindow(Gtk.Window):
   def newSession(self, button):
     self.client.newSession()
 
+  def saveSessionResponse(self, dialog, response):
+    if(response == Gtk.ResponseType.ACCEPT):
+      self.client.saveFile(dialog.get_filename())
+    if(response != Gtk.ResponseType.DELETE_EVENT):
+      dialog.destroy()
+
+  def saveSession(self, button):
+    dialog = Gtk.FileChooserDialog("Save File",
+                                   self,
+                                   Gtk.FileChooserAction.SAVE)
+    dialog.add_button("_Cancel", Gtk.ResponseType.CANCEL)
+    dialog.add_button("_Save", Gtk.ResponseType.ACCEPT)
+    dialog.set_do_overwrite_confirmation(True)
+    dialog.connect('response', self.saveSessionResponse)
+    dialog.show_all()
+
+  def loadSessionResponse(self, dialog, response):
+    if(response == Gtk.ResponseType.ACCEPT):
+      self.client.loadFile(dialog.get_filename())
+    if(response != Gtk.ResponseType.DELETE_EVENT):
+      dialog.destroy()
+
+  def loadSession(self, button):
+    dialog = Gtk.FileChooserDialog("Load File",
+                                   self,
+                                   Gtk.FileChooserAction.OPEN)
+    dialog.add_button("_Cancel", Gtk.ResponseType.CANCEL)
+    dialog.add_button("_Load", Gtk.ResponseType.ACCEPT)
+    dialog.connect('response', self.loadSessionResponse)
+    dialog.show_all()
+
+  def addFiles(self, button, playlistLabel):
+    if(playlistLabel.get_text() == ''):
+      return
+    self.client.getFileList("", playlistLabel.get_text())
+
   # event inputs
 
   def newPlaylists(self, obj):
@@ -252,8 +291,7 @@ class MainWindow(Gtk.Window):
             self.refreshPlaylistView(self.playlist1View, None)
           elif(self.playlist2Label.get_text() == pl):
             self.refreshPlaylistView(self.playlist2View, None)
-          del playlsitsListStore[row.get_indices()[0]]
-          #self.playlistsListStore.remove(row.iter)
+          self.playlistsListStore.remove(row.iter)
 
   def setCurrentPlaylist(self, obj):
     for row in self.playlistsListStore:
@@ -297,10 +335,11 @@ class MainWindow(Gtk.Window):
             played = 'Y'
         except KeyError:
           pass
+        filePath, fileName = os.path.split(entry['name'])
         if(i == None):
-          playlist.append(('', entry['name'], played))
+          playlist.append(('', fileName, played))
         else:
-          playlist.insert_before(i, ('', entry['name'], played))
+          playlist.insert_before(i, ('', fileName, played))
           i = playlist.iter_next(i)
 
   def clientConnected(self):
@@ -423,7 +462,6 @@ class MainWindow(Gtk.Window):
   def setRandom(self, obj):
     plRow = None
     for row in self.playlistsListStore:
-      print(row[1])
       if(row[1] == obj['playlist']):
         plRow = row
         break
@@ -444,6 +482,46 @@ class MainWindow(Gtk.Window):
         plRow[3] = 'Y'
     else:
         plRow[3] = 'N'
+
+  def listFilesResponse(self, dialog, response, playlist):
+    if(response == Gtk.ResponseType.ACCEPT):
+      itemType, items = dialog.get_selection()
+      if(itemType == "D"):
+        self.client.getFileList(os.path.join(dialog.get_path(), items[0]), playlist)
+      else:
+        for item in enumerate(items):
+          items[item[0]] = os.path.join(dialog.get_path(), item[1])
+        print(repr(items))
+        self.client.addEntries(playlist, items)
+    if(response != Gtk.ResponseType.DELETE_EVENT):
+      dialog.destroy()
+
+  def listFiles(self, obj):
+    if('path' not in obj):
+      return("No 'path'.")
+    if(type(obj['path']) != str):
+      return("'path' is not a string.")
+    if('playlist' not in obj):
+      return("No 'playlist'.")
+    if(type(obj['playlist']) != str):
+      return("'playlist' is not a string.")
+    if('dirs' not in obj):
+      return("No 'dirs'.")
+    if(type(obj['dirs']) != list):
+      return("'dirs' is not a list.")
+    for item in obj['dirs']:
+      if(type(item) != str):
+        return("'dirs' item is not a string.")
+    if('files' not in obj):
+      return("No 'files'.")
+    if(type(obj['files']) != list):
+      return("'files' is not a list.")
+    for item in obj['files']:
+      if(type(item) != str):
+        return("'files' item is not a string.")
+    dialog = FileListDialog.FileListDialog(self, obj['path'], obj['dirs'], obj['files'])
+    dialog.connect('response', self.listFilesResponse, obj['playlist'])
+    dialog.show_all()
 
   def __init__(self, client):
     Gtk.Window.__init__(self, title="MPV-VJ 2")
@@ -518,6 +596,7 @@ class MainWindow(Gtk.Window):
     scroll.add(self.playlist1List)
     self.playlist1View.pack_start(scroll, True, True, 0)    
     self.addUrl1Btn.connect('clicked', self.addURL, self.playlist1Label)
+    self.addFiles1Btn.connect('clicked', self.addFiles, self.playlist1Label)
     self.playlist1List.connect('key-press-event', self.playlistActions, self.playlist1Label)
     self.playlist1List.connect('row-activated', self.playlistActivated, self.playlist1Label)
 
@@ -554,6 +633,7 @@ class MainWindow(Gtk.Window):
     scroll.add(self.playlist2List)
     self.playlist2View.pack_start(scroll, True, True, 0)    
     self.addUrl2Btn.connect('clicked', self.addURL, self.playlist2Label)
+    self.addFiles2Btn.connect('clicked', self.addFiles, self.playlist2Label)
     self.playlist2List.connect('key-press-event', self.playlistActions, self.playlist2Label)
     self.playlist2List.connect('row-activated', self.playlistActivated, self.playlist2Label)
 
@@ -614,8 +694,8 @@ class MainWindow(Gtk.Window):
     self.toolBar.pack_start(self.stopBtn, False, False, 0)
 
     self.newBtn.connect('clicked', self.newSession)
-    #self.saveBtn.connect('clicked', self.saveSession)
-    #self.loadBtn.connect('clicked', self.loadSession)
+    self.saveBtn.connect('clicked', self.saveSession)
+    self.loadBtn.connect('clicked', self.loadSession)
     self.settingsBtn.connect('clicked', self.editSettings)
     self.mpvOptsBtn.connect('clicked', self.editMpvOpts)
     self.playBtn.connect('clicked', self.playMedia)

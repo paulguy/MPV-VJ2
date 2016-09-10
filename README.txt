@@ -41,8 +41,8 @@ Middle - views
       Keys:
         L - View selected playlist in left view
         R - View selected playlist in right view
-        C - Cue selected playlist (Empty playlists can't be cued)
-        D - Delete selected playlists
+        ENTER - Cue selected playlist (Empty playlists can't be cued)
+        DELETE - Delete selected playlists
         CTRL+F - Search
   Middle - First playlist view
     Toolbar
@@ -55,9 +55,9 @@ Middle - views
       "P" - Played (Won't be selected for random play) (Double click to toggle)
       Keys:
         Double click - Cue this playlist and item and play immediately
-        C - Cue selected item for this playlist (Won't necessarily be played
+        ENTER - Cue selected item for this playlist (Won't necessarily be played
             next unless this playlist is cued as well)
-        D - Delete selected items
+        DELETE - Delete selected items
         CTRL+F - Search
   Right - Second playlist view, same as first
 

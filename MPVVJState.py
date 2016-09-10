@@ -259,6 +259,7 @@ class MPVVJState:
       if(entry < 0 or entry > lastEntry):
         return("Entry " + str(entry) + " out of range.")
 
+    obj['entries'].sort(reverse=True)
     for entry in obj['entries']:
       pl[1].delEntryByIndex(entry)
     return(None)

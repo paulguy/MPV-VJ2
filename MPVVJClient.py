@@ -22,6 +22,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 from gi.repository import GLib
 import time
+import json
 
 import MainWindow
 import JSONSocket
@@ -29,10 +30,14 @@ import MPVVJState
 import Logger
 
 # TODO
-# new/save/load (and server)
-# file browsing (and server)
+# new/save/load (and server) - DONE
+# file browsing (and server) - DONE
 # manipulate loop/random playback - DONE
 # manipulate "played" state - DONE
+# unset all played in playlist (and server)
+# only show filenames without paths in playlist views
+# playlist organization with drag and drop (and server)
+# tooltips
 # bugs and crashes
 
 TPS = 20
@@ -49,6 +54,7 @@ class MPVVJClient:
     self.win = None
     self.state = None
     self.socket = None
+    self.fd = None
     self.logger = Logger.Logger()
     self.settings = { # options should be initialized as strings
       'host': MPVVJClient.DEFAULT_HOST,
@@ -136,8 +142,11 @@ class MPVVJClient:
   def newPlaylist(self, name):
     self.sendCommand('new-playlists', {'playlists': [{'name': name}]})
 
-  def addEntry(self, playlist, name):
-    self.sendCommand('add-entries', {'playlist': playlist, 'entries': [{'name': name}]})
+  def addEntries(self, playlist, entries):
+    nameList = []
+    for entry in entries:
+      nameList.append({'name': entry})
+    self.sendCommand('add-entries', {'playlist': playlist, 'entries': nameList})
 
   def cuePlaylist(self, playlist):
     self.sendCommand('cue-playlist', {'playlist': playlist})
@@ -185,6 +194,55 @@ class MPVVJClient:
   def toggleLooping(self, playlist):
     self.sendCommand('set-looping', {'playlist': playlist})
 
+  def saveObjAsJSON(self, fd, obj):
+    fd.write((json.dumps(obj) + "\n"))
+
+  def saveResponse(self, fd, responseType, value, args=None):
+    if(args == None):
+      args = {responseType: value}
+    else:
+      if(type(args) != dict):
+        raise TypeError
+      args.update({responseType: value})
+    
+    self.logger.log("file <-- " + repr(args))
+    self.saveObjAsJSON(fd, args)
+
+  def saveCommand(self, fd, event, args=None):
+    self.saveResponse(fd, 'command', event, args)
+
+  def savePlaylists(self, fd):
+    self.saveCommand(fd, 'new-playlists', {'playlists': self.state.getPlaylists()})
+
+  def savePlaylist(self, fd, pl):
+    self.saveCommand(fd, 'add-entries', {'playlist': pl.name, 'entries': pl.getEntries()})
+    self.saveCommand(fd, 'cue-item', {'playlist': pl.name, 'item': pl.currentCue})
+
+  def saveMpvOpts(self, fd):
+    self.saveCommand(fd, 'set-mpv-opts', {'opts': self.state.mpvopts})
+
+  def saveCuePlaylist(self, fd, name):
+    self.saveCommand(fd, 'cue-playlist', {'playlist': name})
+
+  def saveFile(self, filename):
+    with open(filename, 'w') as fd:
+      self.savePlaylists(fd)
+      for pl in self.state.playlists:
+        if(len(pl.entries) != 0):
+          self.savePlaylist(fd, pl)
+      self.saveMpvOpts(fd)
+
+      current = self.state.getCurrent()
+      if(current != None):
+        self.saveCuePlaylist(fd, current[0])
+
+  def loadFile(self, filename):
+    self.newSession()
+    self.fd = open(filename, 'r')
+
+  def getFileList(self, path, playlist):
+    self.sendCommand('list-files', {'path': path, 'playlist': playlist})
+
   def tick(self, nothing):
     if(self.socket != None):
       obj = self.socket.getJSONAsObj()
@@ -207,6 +265,31 @@ class MPVVJClient:
           self.win.clientConnected()
           self.logger.log("Connection established.")
         self.logger.log("server --> " + repr(obj))
+
+        if(self.fd != None):
+          def readFunc():
+            line = self.fd.readline()
+            if(line == ""):
+              self.fd.close()
+              self.fd = None
+              return
+            self.logger.log("file --> " + line)
+            try:
+              obj = json.loads(line)
+            except json.decoder.JSONDecodeError as e:
+              self.logger.log("Bad JSON: " + e.args[0])
+              self.fd.close()
+              self.fd = None
+              return
+            if('command' not in obj):
+              self.logger.log("No 'command'.")
+              self.fd.close()
+              self.fd = None
+              return
+            cmd = obj['command']
+            del obj['command']
+            self.sendCommand(cmd, obj)
+          readFunc()
 
         if('event' in obj):
           if(obj['event'] == 'new-playlists'):
@@ -319,6 +402,12 @@ class MPVVJClient:
               self.logger.log(event + ": " + ret)        
             else:
               self.win.haveOpts()
+          elif(obj['event'] == 'file-list'):
+            event = obj['event']
+            del obj['event']
+            ret = self.win.listFiles(obj)
+            if(ret != None):
+              self.logger.log(event + ": " + ret)        
           else:
             self.logger.log("Unknown action!")
         elif('error' in obj):
