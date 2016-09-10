@@ -17,6 +17,8 @@ You should have received a copy of the GNU General Public License
 along with MPV-VJ2.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import os.path
+
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
@@ -53,6 +55,10 @@ class FileListDialog(Gtk.Dialog):
       self.selection[1].append(self.listStore[row.get_indices()[0]][0])
     self.emit('response', Gtk.ResponseType.ACCEPT)
 
+  def goUp(self, button):
+    self.selection = ("D", "..")
+    self.emit('response', Gtk.ResponseType.ACCEPT)    
+
   def __init__(self, lastWindow, path, dirs, files):
     Gtk.Dialog.__init__(self, title=path)
 
@@ -85,6 +91,10 @@ class FileListDialog(Gtk.Dialog):
     self.addBtn.add(Gtk.Image.new_from_icon_name('list-add', Gtk.IconSize.BUTTON))
     self.addBtn.connect('clicked', self.returnFiles)
     self.buttonBox.pack_start(self.addBtn, False, False, 0)
+    self.upBtn = Gtk.Button()
+    self.upBtn.add(Gtk.Image.new_from_icon_name('go-up', Gtk.IconSize.BUTTON))
+    self.upBtn.connect('clicked', self.goUp)
+    self.buttonBox.pack_start(self.upBtn, False, False, 0)
 
     self.box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
     scroll = Gtk.ScrolledWindow()

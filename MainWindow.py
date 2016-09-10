@@ -487,7 +487,11 @@ class MainWindow(Gtk.Window):
     if(response == Gtk.ResponseType.ACCEPT):
       itemType, items = dialog.get_selection()
       if(itemType == "D"):
-        self.client.getFileList(os.path.join(dialog.get_path(), items[0]), playlist)
+        if(items == ".."):
+          filePath, fileName = os.path.split(dialog.get_path())
+          self.client.getFileList(os.path.join(filePath), playlist)
+        else:
+          self.client.getFileList(os.path.join(dialog.get_path(), items[0]), playlist)
       else:
         for item in enumerate(items):
           items[item[0]] = os.path.join(dialog.get_path(), item[1])
