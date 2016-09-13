@@ -66,7 +66,7 @@ class SettingsDialog(Gtk.Dialog):
   def editEntry(self, listView, row, column):
     #i = self.listStore.get_iter(row)
     #key = self.listStore.get_value(i, 0)
-    key = self.listStore[0][row.get_indices()[0]]
+    key = self.listStore[row.get_indices()[0]][0]
     if(self.add == True and column.get_title() == "Key"):
       editDialog = PromptDialog.PromptDialog(self, "Edit Key", key)
       editDialog.connect('response', self.editKeyResponse, key)

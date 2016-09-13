@@ -22,6 +22,7 @@ import random
 import signal
 import os
 import os.path
+import argparse
 
 import MPVVJState
 import JSONSocket
@@ -38,6 +39,10 @@ import MPV
 # bugs and crashes
 
 TPS = 20
+DEFAULT_MPV = "/usr/bin/mpv"
+DEFAULT_SOCKET = "/tmp/mpvsocket"
+DEFAULT_PORT = 12345
+DEFAULT_BIND_ADDRESS = "127.0.0.1"
 
 
 def hupHandler(signum, frame):
@@ -57,13 +62,14 @@ class PlaylistStop(BaseException):
 
 
 class MPVVJServer():
-  PORT = 12345
-  DEFAULT_MPV = "/usr/bin/mpv"
-  DEFAULT_SOCKET = "/tmp/mpvsocket"
   RETRIES = 3
   TIMEOUT = 45
 
-  def __init__(self):
+  def __init__(self, mpvPath, socketPath, bindAddress, port):
+    self.mpvPath = mpvPath
+    self.socketPath = socketPath
+    self.bindAddress = bindAddress
+    self.port = port
     self.state = MPVVJState.MPVVJState()
     self.socket = None
     self.reconnectSocket()
@@ -76,7 +82,9 @@ class MPVVJServer():
   def reconnectSocket(self):
     if(self.socket != None):
       self.socket.close()
-    self.socket = JSONSocket.JSONTCPSocket(listening=True, host=None, port=MPVVJServer.PORT)
+    print("Binding to " + self.bindAddress + " (" + str(self.port) + ").")
+    self.socket = JSONSocket.JSONTCPSocket(listening=True, host=self.bindAddress,
+                                           port=self.port)
     self.lastAct = None
 
   def sendResponse(self, responseType, value, args=None):
@@ -348,7 +356,7 @@ class MPVVJServer():
               self.sendFailureResponse("Already stopped.")
           elif(obj['command'] == 'run-mpv'):
             if(self.mpv == None):
-              self.mpv = MPV.MPV(MPVVJServer.DEFAULT_MPV, MPVVJServer.DEFAULT_SOCKET, self.state.mpvopts)
+              self.mpv = MPV.MPV(self.mpvPath, self.socketPath, self.state.mpvopts)
               self.lastConnectionAttempt = time.monotonic()
             else:
               self.sendFailureResponse("MPV is already running.")
@@ -361,11 +369,6 @@ class MPVVJServer():
               self.clientMpvTerminated()
             else:
               self.sendFailureResponse("MPV isn't running.")
-          elif(obj['command'] == 'quit'):
-            if(self.mpv != None):
-              self.mpv.terminate()
-            self.socket.close()
-            return(False)
           elif(obj['command'] == 'list-files'):
             if('path' in obj):
               if(type(obj['path']) == str):
@@ -408,7 +411,20 @@ class MPVVJServer():
 
 
 if(__name__ == '__main__'):
-  server = MPVVJServer()
+  parser = argparse.ArgumentParser(description="MPV-VJ2 - Remotely control mpv and manage playlists.")
+  parser.add_argument('--mpv-path', metavar="<PATH>", type=str,
+                      help="Path to MPV executable.", default=DEFAULT_MPV)
+  parser.add_argument('--mpv-socket-path', metavar="<PATH>", type=str,
+                      help="Filename of socket to use for communicating with mpv.",
+                      default=DEFAULT_SOCKET)
+  parser.add_argument('--bind-address', metavar="<address>", type=str,
+                      help="Address to bind to.", default=DEFAULT_BIND_ADDRESS)
+  parser.add_argument('--bind-port', metavar="<port>", type=int,
+                      help="Port to bind to.", default=DEFAULT_PORT)
+  args = parser.parse_args()
+  
+  server = MPVVJServer(args.mpv_path, args.mpv_socket_path,
+                       args.bind_address, args.bind_port)
   random.seed(time.time())
 
   try:

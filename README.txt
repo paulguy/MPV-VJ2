@@ -16,6 +16,21 @@ play, then run the client and connect to the server.  The host can be specified
 under settings.  Create a playlist or multiple playlists and populate them with
 media.  Start MPV then start playback.
 
+Server Command Line Arguments:
+usage: MPVVJServer.py [-h] [--mpv-path <PATH>] [--mpv-socket-path <PATH>]
+                      [--bind-address <address>] [--bind-port <port>]
+
+MPV-VJ2 - Remotely control mpv and manage playlists.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --mpv-path <PATH>     Path to MPV executable.
+  --mpv-socket-path <PATH>
+                        Filename of socket to use for communicating with mpv.
+  --bind-address <address>
+                        Address to bind to.
+  --bind-port <port>    Port to bind to.
+
 Interface Overview
 
 Top - toolbar
@@ -41,7 +56,7 @@ Middle - views
       Keys:
         L - View selected playlist in left view
         R - View selected playlist in right view
-        ENTER - Cue selected playlist (Empty playlists can't be cued)
+        C - Cue selected playlist (Empty playlists can't be cued)
         DELETE - Delete selected playlists
         CTRL+F - Search
   Middle - First playlist view
@@ -55,7 +70,7 @@ Middle - views
       "P" - Played (Won't be selected for random play) (Double click to toggle)
       Keys:
         Double click - Cue this playlist and item and play immediately
-        ENTER - Cue selected item for this playlist (Won't necessarily be played
+        C - Cue selected item for this playlist (Won't necessarily be played
             next unless this playlist is cued as well)
         DELETE - Delete selected items
         CTRL+F - Search

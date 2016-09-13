@@ -153,7 +153,7 @@ class MainWindow(Gtk.Window):
           if(self.playlist1Label.get_text() == pl):
             return(False)
           self.refreshPlaylistView(self.playlist2View, pl)
-      elif(event.keyval == Gdk.KEY_Return):
+      elif(event.keyval == Gdk.KEY_c):
         if(len(rows) == 1):
           pl = model[rows[0].get_indices()[0]][1]
           #pl = model.get_value(model.get_iter(rows[0]), 1)
@@ -184,7 +184,7 @@ class MainWindow(Gtk.Window):
       return(False)
 
     if(event.type == Gdk.EventType.KEY_PRESS):
-      if(event.keyval == Gdk.KEY_Return):
+      if(event.keyval == Gdk.KEY_c):
         if(len(rows) == 1):
           pl = label.get_text()
           self.client.cueEntry(pl, rows[0].get_indices()[0])

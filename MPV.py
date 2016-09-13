@@ -79,6 +79,10 @@ class MPV:
     opts = self.opts.copy()
     opts.update(self.forcedOpts)
     arglist = MPV.genArgs(self.path, opts)
+    textArgs = ""
+    for arg in arglist:
+      textArgs = textArgs + " " + arg
+    print("Running " + self.path + textArgs)
     self.mpv = subprocess.Popen(arglist, stdout=subprocess.DEVNULL,
                            stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

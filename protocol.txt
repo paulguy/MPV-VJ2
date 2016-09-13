@@ -87,8 +87,6 @@ Server specific commands:
     path (str) - Path to list
     playlist (str) - For maintaining the playlist name...
 
-  quit - Stops the server
-
 Client-specific events:
   mpv-started - MPV has started
 
