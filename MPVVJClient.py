@@ -34,10 +34,11 @@ import Logger
 # manipulate loop/random playback - DONE
 # manipulate "played" state - DONE
 # unset all played in playlist (and server)
-# only show filenames without paths in playlist views
+# only show filenames without paths in playlist views - DONE
 # playlist organization with drag and drop (and server)
 # tooltips
 # save / save as
+# fix 'played' logic
 # bugs and crashes
 
 TPS = 20

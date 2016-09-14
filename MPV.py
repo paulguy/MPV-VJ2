@@ -26,7 +26,6 @@ class MPV:
     'config': 'no',
     'idle': 'yes',
     'terminal': 'no',
-    'force-window': 'yes'
   }
 
   def __init__(self, path, socket, opts):

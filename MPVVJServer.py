@@ -32,7 +32,7 @@ import MPV
 # MPV options management - DONE
 # new/save/load (and client) - DONE
 # file browsing (and client) - DONE
-# command line arguments (bind address, port, verbose logging, starting directory, ...)
+# command line arguments (bind address, port, verbose logging, starting directory, ...) - DONE
 # probably some more socket stuff as it comes up... - SEEMINGLY DONE!
 # unset all played in playlist (and clioent)
 # playlist organization (and client)

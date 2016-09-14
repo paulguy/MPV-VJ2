@@ -21,6 +21,7 @@ import os.path
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
+from gi.repository import Gdk
 
 class FileListDialog(Gtk.Dialog):
   def get_selection(self):
@@ -32,12 +33,8 @@ class FileListDialog(Gtk.Dialog):
   def closeAlert(self, dialog, response):
     if(response != Gtk.ResponseType.DELETE_EVENT):
       dialog.destroy()    
-  
-  def selectEntry(self, listView, row, column):
-    self.selection = (self.listStore[row.get_indices()[0]][1], [self.listStore[row.get_indices()[0]][0]])
-    self.emit('response', Gtk.ResponseType.ACCEPT)
 
-  def returnFiles(self, button):
+  def setSelection(self):
     model, rows = self.listView.get_selection().get_selected_rows()
     
     self.selection = ("F", [])
@@ -53,6 +50,20 @@ class FileListDialog(Gtk.Dialog):
         return
       self.selection[1].append(self.listStore[row.get_indices()[0]][0])
     self.emit('response', Gtk.ResponseType.ACCEPT)
+
+  def keyPress(self, listView, event):
+    if(event.type == Gdk.EventType.KEY_PRESS):
+      if(event.keyval == Gdk.KEY_Return):
+        self.setSelection()
+        return(True) #Don't let enter fall through
+    return(False)
+
+  def selectEntry(self, listView, row, column):
+    self.selection = (self.listStore[row.get_indices()[0]][1], [self.listStore[row.get_indices()[0]][0]])
+    self.emit('response', Gtk.ResponseType.ACCEPT)
+
+  def returnFiles(self, button):
+    self.setSelection()
 
   def goUp(self, button):
     self.selection = ("D", "..")
@@ -83,6 +94,7 @@ class FileListDialog(Gtk.Dialog):
     self.listView.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
     self.listView.set_search_column(0)
     self.listView.set_enable_search(True)
+    self.listView.connect('key-press-event', self.keyPress)
     self.listView.connect('row-activated', self.selectEntry)
 
     self.buttonBox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
