@@ -17,33 +17,35 @@
 
 
 import gi
+
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 from gi.repository import Gdk
 
+
 class PromptDialog(Gtk.Dialog):
-  def get_text(self):
-    return(self.entry.get_buffer().get_text())
+    def get_text(self):
+        return self.entry.get_buffer().get_text()
 
-  def keyPressed(self, dialog, event):
-    if(event.type == Gdk.EventType.KEY_PRESS):
-      if(event.keyval == Gdk.KEY_Return):
-        self.emit('response', Gtk.ResponseType.OK)
-    return(False)
+    def keyPressed(self, dialog, event):
+        if event.type == Gdk.EventType.KEY_PRESS:
+            if event.keyval == Gdk.KEY_Return:
+                self.emit('response', Gtk.ResponseType.OK)
+        return False
 
-  def __init__(self, lastWindow, message, value=""):
-    Gtk.Dialog.__init__(self, title="Prompt")
-    
-    self.set_modal(True)
-    self.set_transient_for(lastWindow)
-    
-    self.label = Gtk.Label(message)
-    self.entry = Gtk.Entry()
-    self.entry.set_text(value)
-    self.get_content_area().pack_start(self.label, True, True, 0)
-    self.get_content_area().pack_start(self.entry, True, True, 0)
-    
-    self.add_button("OK", Gtk.ResponseType.OK)
-    self.add_button("Cancel", Gtk.ResponseType.CANCEL)
-    
-    self.connect("key-press-event", self.keyPressed)
+    def __init__(self, lastWindow, message, value=""):
+        Gtk.Dialog.__init__(self, title="Prompt")
+
+        self.set_modal(True)
+        self.set_transient_for(lastWindow)
+
+        self.label = Gtk.Label(message)
+        self.entry = Gtk.Entry()
+        self.entry.set_text(value)
+        self.get_content_area().pack_start(self.label, True, True, 0)
+        self.get_content_area().pack_start(self.entry, True, True, 0)
+
+        self.add_button("OK", Gtk.ResponseType.OK)
+        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
+
+        self.connect("key-press-event", self.keyPressed)

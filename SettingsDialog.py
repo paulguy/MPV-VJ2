@@ -17,6 +17,7 @@
 
 
 import gi
+
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 from gi.repository import Gdk
@@ -24,132 +25,131 @@ from gi.repository import Pango
 
 import PromptDialog
 
+
 class SettingsDialog(Gtk.Dialog):
-  def closeAlert(self, dialog, response):
-    if(response != Gtk.ResponseType.DELETE_EVENT):
-      dialog.destroy()    
+    def closeAlert(self, dialog, response):
+        if response != Gtk.ResponseType.DELETE_EVENT:
+            dialog.destroy()
 
-  def editKeyResponse(self, dialog, response, key):
-    if(response == Gtk.ResponseType.OK):
-      if(dialog.get_text() in self.options):
-        alertBox = Gtk.MessageDialog(parent=dialog,
-                                     flags=Gtk.DialogFlags.MODAL,
-                                     type=Gtk.MessageType.ERROR,
-                                     buttons=Gtk.ButtonsType.OK,
-                                     message_format="Key already exists.")
-        alertBox.connect('response', self.closeAlert)
-        alertBox.show_all()
-      else:
-        newKey = dialog.get_text()
-        value = self.options[key]
+    def editKeyResponse(self, dialog, response, key):
+        if response == Gtk.ResponseType.OK:
+            if dialog.get_text() in self.options:
+                alertBox = Gtk.MessageDialog(parent=dialog,
+                                             flags=Gtk.DialogFlags.MODAL,
+                                             type=Gtk.MessageType.ERROR,
+                                             buttons=Gtk.ButtonsType.OK,
+                                             message_format="Key already exists.")
+                alertBox.connect('response', self.closeAlert)
+                alertBox.show_all()
+            else:
+                newKey = dialog.get_text()
+                value = self.options[key]
+                del self.options[key]
+                self.options[newKey] = value
+
+                for row in self.listStore:
+                    if row[0] == key:
+                        row[0] = newKey
+                        break
+        if response != Gtk.ResponseType.DELETE_EVENT:
+            dialog.destroy()
+
+    def editValueResponse(self, dialog, response, key):
+        value = dialog.get_text()
+        if response == Gtk.ResponseType.OK:
+            self.options[key] = value
+            for row in self.listStore:
+                if row[0] == key:
+                    row[1] = value
+                    break
+        if response != Gtk.ResponseType.DELETE_EVENT:
+            dialog.destroy()
+
+    def editEntry(self, listView, row, column):
+        key = self.listStore[row.get_indices()[0]][0]
+        if self.add == True and column.get_title() == "Key":
+            editDialog = PromptDialog.PromptDialog(self, "Edit Key", key)
+            editDialog.connect('response', self.editKeyResponse, key)
+            editDialog.show_all()
+        else:
+            editDialog = PromptDialog.PromptDialog(self, "Edit Value", self.options[key])
+            editDialog.connect('response', self.editValueResponse, key)
+            editDialog.show_all()
+
+    def addKeyResponse(self, dialog, response):
+        key = dialog.get_text()
+        if response == Gtk.ResponseType.OK:
+            self.options[key] = ""
+            i = self.listStore.get_iter_first()
+            self.listStore.insert_before(i, (key, ""))
+        if response != Gtk.ResponseType.DELETE_EVENT:
+            dialog.destroy()
+
+    def addKey(self, button):
+        editDialog = PromptDialog.PromptDialog(self, "Add Key")
+        editDialog.connect('response', self.addKeyResponse)
+        editDialog.show_all()
+
+    def delKey(self, button):
+        row, column = self.listView.get_cursor()
+        key = self.listStore[row.get_indices()[0]][0]
         del self.options[key]
-        self.options[newKey] = value
+        del self.listStore[row.get_indices()[0]]
 
-        for row in self.listStore:
-          if(row[0] == key):
-            row[0] = newKey
-            break
-    if(response != Gtk.ResponseType.DELETE_EVENT):
-      dialog.destroy()
+    def __init__(self, lastWindow, options, add=False):
+        Gtk.Dialog.__init__(self, title="Settings")
 
-  def editValueResponse(self, dialog, response, key):
-    value = dialog.get_text()
-    if(response == Gtk.ResponseType.OK):
-      self.options[key] = value
-      for row in self.listStore:
-        if(row[0] == key):
-          row[1] = value
-          break
-    if(response != Gtk.ResponseType.DELETE_EVENT):
-      dialog.destroy()
+        self.add = add
 
-  def editEntry(self, listView, row, column):
-    #i = self.listStore.get_iter(row)
-    #key = self.listStore.get_value(i, 0)
-    key = self.listStore[row.get_indices()[0]][0]
-    if(self.add == True and column.get_title() == "Key"):
-      editDialog = PromptDialog.PromptDialog(self, "Edit Key", key)
-      editDialog.connect('response', self.editKeyResponse, key)
-      editDialog.show_all()
-    else:
-      editDialog = PromptDialog.PromptDialog(self, "Edit Value", self.options[key])
-      editDialog.connect('response', self.editValueResponse, key)
-      editDialog.show_all()
+        self.set_modal(True)
+        self.set_transient_for(lastWindow)
 
-  def addKeyResponse(self, dialog, response):
-    key = dialog.get_text()
-    if(response == Gtk.ResponseType.OK):
-      self.options[key] = ""
-      i = self.listStore.get_iter_first()
-      self.listStore.insert_before(i, (key, ""))
-    if(response != Gtk.ResponseType.DELETE_EVENT):
-      dialog.destroy()
+        if type(options) != dict:
+            raise TypeError
+        if type(add) != bool:
+            raise TypeError
+        self.options = options
 
-  def addKey(self, button):
-    editDialog = PromptDialog.PromptDialog(self, "Add Key")
-    editDialog.connect('response', self.addKeyResponse)
-    editDialog.show_all()
+        self.listStore = Gtk.ListStore(str, str)
+        for key in self.options.keys():
+            if type(key) != str or type(self.options[key]) != str:
+                raise TypeError
+            self.listStore.append((key, self.options[key]))
 
-  def delKey(self, button):
-    row, column = self.listView.get_cursor()
-    key = self.listStore[row.get_indices()[0]][0]
-    del self.options[key]
-    del self.listStore[row.get_indices()[0]]
+        self.listView = Gtk.TreeView.new_with_model(self.listStore)
+        self.keyColumn = Gtk.TreeViewColumn("Key", Gtk.CellRendererText(), text=0)
+        self.keyColumn.set_resizable(True)
+        self.keyColumn.set_sizing(Gtk.TreeViewColumnSizing.GROW_ONLY)
+        self.listView.append_column(self.keyColumn)
+        self.valueColumn = Gtk.TreeViewColumn("Value", Gtk.CellRendererText(), text=1)
+        self.valueColumn.set_resizable(True)
+        self.valueColumn.set_sizing(Gtk.TreeViewColumnSizing.GROW_ONLY)
+        self.listView.append_column(self.valueColumn)
+        self.listView.set_search_column(0)
+        self.listView.set_enable_search(True)
+        self.listView.connect('row-activated', self.editEntry)
 
-  def __init__(self, lastWindow, options, add=False):
-    Gtk.Dialog.__init__(self, title="Settings")
+        if self.add:
+            self.buttonBox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
+            self.addBtn = Gtk.Button()
+            self.addBtn.add(Gtk.Image.new_from_icon_name('list-add', Gtk.IconSize.BUTTON))
+            self.addBtn.connect('clicked', self.addKey)
+            self.delBtn = Gtk.Button()
+            self.delBtn.add(Gtk.Image.new_from_icon_name('list-remove', Gtk.IconSize.BUTTON))
+            self.delBtn.connect('clicked', self.delKey)
+            self.buttonBox.pack_start(self.addBtn, False, False, 0)
+            self.buttonBox.pack_start(self.delBtn, False, False, 0)
 
-    self.add = add
+            self.box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            scroll = Gtk.ScrolledWindow()
+            scroll.add(self.listView)
+            self.box.pack_start(scroll, True, True, 0)
+            self.box.pack_start(self.buttonBox, False, False, 0)
+            self.get_content_area().pack_start(self.box, True, True, 0)
+        else:
+            scroll = Gtk.ScrolledWindow()
+            scroll.add(self.listView)
+            self.get_content_area().pack_start(scroll, True, True, 0)
+        self.add_button("Close", Gtk.ResponseType.CLOSE)
 
-    self.set_modal(True)
-    self.set_transient_for(lastWindow)
-
-    if(type(options) != dict):
-      raise TypeError
-    if(type(add) != bool):
-      raise TypeError
-    self.options = options
-
-    self.listStore = Gtk.ListStore(str, str)
-    for key in self.options.keys():
-      if(type(key) != str or type(self.options[key]) != str):
-        raise TypeError
-      self.listStore.append((key, self.options[key]))
-
-    self.listView = Gtk.TreeView.new_with_model(self.listStore)
-    self.keyColumn = Gtk.TreeViewColumn("Key", Gtk.CellRendererText(), text=0)
-    self.keyColumn.set_resizable(True)
-    self.keyColumn.set_sizing(Gtk.TreeViewColumnSizing.GROW_ONLY)
-    self.listView.append_column(self.keyColumn)
-    self.valueColumn = Gtk.TreeViewColumn("Value", Gtk.CellRendererText(), text=1)
-    self.valueColumn.set_resizable(True)
-    self.valueColumn.set_sizing(Gtk.TreeViewColumnSizing.GROW_ONLY)
-    self.listView.append_column(self.valueColumn)
-    self.listView.set_search_column(0)
-    self.listView.set_enable_search(True)
-    self.listView.connect('row-activated', self.editEntry)
-
-    if(self.add == True):
-      self.buttonBox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=1)
-      self.addBtn = Gtk.Button()
-      self.addBtn.add(Gtk.Image.new_from_icon_name('list-add', Gtk.IconSize.BUTTON))
-      self.addBtn.connect('clicked', self.addKey)
-      self.delBtn = Gtk.Button()
-      self.delBtn.add(Gtk.Image.new_from_icon_name('list-remove', Gtk.IconSize.BUTTON))
-      self.delBtn.connect('clicked', self.delKey)
-      self.buttonBox.pack_start(self.addBtn, False, False, 0)
-      self.buttonBox.pack_start(self.delBtn, False, False, 0)
-
-      self.box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-      scroll = Gtk.ScrolledWindow()
-      scroll.add(self.listView)
-      self.box.pack_start(scroll, True, True, 0)
-      self.box.pack_start(self.buttonBox, False, False, 0)
-      self.get_content_area().pack_start(self.box, True, True, 0)
-    else:
-      scroll = Gtk.ScrolledWindow()
-      scroll.add(self.listView)
-      self.get_content_area().pack_start(scroll, True, True, 0)
-    self.add_button("Close", Gtk.ResponseType.CLOSE)
-
-    self.resize(200, 200)
+        self.resize(200, 200)

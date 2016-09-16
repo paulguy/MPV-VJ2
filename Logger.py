@@ -15,31 +15,30 @@
 # You should have received a copy of the GNU General Public License
 # along with MPV-VJ2.  If not, see <http://www.gnu.org/licenses/>.
 
-
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
-from gi.repository import Pango
+
 
 class Logger:
-  def __init__(self, logWindow=None):
-    self.logItems = []
-    self.setWindow(logWindow)
+    def __init__(self, logWindow=None):
+        self.logItems = []
+        self.setWindow(logWindow)
 
-  def addEntryToWindow(self, message):
-    self.textBuffer.insert(self.textBuffer.get_end_iter(), message + "\n")
+    def addEntryToWindow(self, message):
+        self.textBuffer.insert(self.textBuffer.get_end_iter(), message + "\n")
 
-  def setWindow(self, logWindow):
-    if(logWindow != None):
-      self.textBuffer = Gtk.TextBuffer()
-      for item in self.logItems:
-        self.textBuffer.insert(self.textBuffer.get_end_iter(), item)
-      logWindow.set_buffer(self.textBuffer)
-    else:
-      self.textBuffer = None
+    def setWindow(self, logWindow):
+        if logWindow is not None:
+            self.textBuffer = Gtk.TextBuffer()
+            for item in self.logItems:
+                self.textBuffer.insert(self.textBuffer.get_end_iter(), item)
+            logWindow.set_buffer(self.textBuffer)
+        else:
+            self.textBuffer = None
 
-  def log(self, message):
-    self.logItems.append(message)
-    if(self.textBuffer != None):
-      self.addEntryToWindow(message)
-    print(message)
+    def log(self, message):
+        self.logItems.append(message)
+        if self.textBuffer is not None:
+            self.addEntryToWindow(message)
+        print(message)
