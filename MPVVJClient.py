@@ -77,7 +77,7 @@ class MPVVJClient:
                 raise TypeError
             args.update({responseType: value})
 
-        if self.socket is None:
+        if self.socket is not None:
             if self.socket.connected:
                 self.logger.log("server <-- " + repr(args))
             else:
@@ -108,6 +108,13 @@ class MPVVJClient:
 
     def connect(self):
         port = None
+        if self.socket is not None:
+            if self.state is not None:
+                self.logger.log("Already connected.")
+            else:
+                self.logger.log("Canceling connection...")
+                self.disconnect()
+            return
         try:
             port = int(self.settings['port'])
         except ValueError:
@@ -115,9 +122,6 @@ class MPVVJClient:
             return
         if port < 1 or port > 65535:
             self.logger.log("'port' must be between 1 and 65535.")
-            return
-        if self.socket is None:
-            self.logger.log("Already connected.")
             return
         self.logger.log("Connecting...")
         try:
@@ -138,9 +142,9 @@ class MPVVJClient:
             self.socket = None
             if self.state is not None:
                 self.logger.log("Disconnected.")
+                self.state = None
             else:
                 self.logger.log("Connection canceled.")
-        self.state = None
         self.win.clientDisconnected()
 
     def newPlaylist(self, name):
@@ -249,180 +253,190 @@ class MPVVJClient:
 
     def tick(self, nothing):
         if self.socket is not None:
-            obj = self.socket.getJSONAsObj()
-            if obj is None:
-                if self.state is None:
-                    if time.monotonic() - self.connectTime > MPVVJClient.CONNECT_TIMEOUT:
-                        self.logger.log("Connection failed.")
-                        self.disconnect()
-                else:
-                    if time.monotonic() - self.connectTime > MPVVJClient.KEEPALIVE_PERIOD:
-                        self.sendKeepalive()
-                        self.connectTime = time.monotonic()
-                    if time.monotonic() - self.lastAct > MPVVJClient.TIMEOUT_PERIOD:
-                        self.logger.log("Connection timed out.")
-                        self.disconnect()
-            else:
-                self.lastAct = time.monotonic()
-                if self.state is None:
-                    self.state = MPVVJState.MPVVJState()
-                    self.win.clientConnected()
-                    self.logger.log("Connection established.")
-                self.logger.log("server --> " + repr(obj))
-
-                if self.fd is not None:
-                    def readFunc():
-                        line = self.fd.readline()
-                        if line == "":
-                            self.fd.close()
-                            self.fd = None
-                            return
-                        self.logger.log("file --> " + line)
-                        try:
-                            lineObj = json.loads(line)
-                        except json.decoder.JSONDecodeError as e:
-                            self.logger.log("Bad JSON: " + e.args[0])
-                            self.fd.close()
-                            self.fd = None
-                            return
-                        if 'command' not in lineObj:
-                            self.logger.log("No 'command'.")
-                            self.fd.close()
-                            self.fd = None
-                            return
-                        cmd = lineObj['command']
-                        del lineObj['command']
-                        self.sendCommand(cmd, lineObj)
-
-                    readFunc()
-
-                if 'event' in obj:
-                    if obj['event'] == 'new-playlists':
-                        event = obj['event']
-                        del obj['event']
-                        ret = self.state.newPlaylists(obj)
-                        if ret is not None:
-                            self.logger.log(event + ": " + ret)
-                        else:
-                            self.win.newPlaylists(obj)
-                    elif obj['event'] == 'delete-playlists':
-                        event = obj['event']
-                        del obj['event']
-                        ret = self.state.deletePlaylists(obj)
-                        if ret is not None:
-                            self.logger.log(event + ": " + ret)
-                        else:
-                            self.win.deletePlaylists(obj)
-                    elif obj['event'] == 'add-entries':
-                        event = obj['event']
-                        del obj['event']
-                        ret = self.state.addEntries(obj)
-                        if ret is not None:
-                            self.logger.log(event + ": " + ret)
-                        else:
-                            self.win.addEntries(obj)
-                    elif obj['event'] == 'delete-entries':
-                        event = obj['event']
-                        del obj['event']
-                        ret = self.state.deleteEntries(obj)
-                        if ret is not None:
-                            self.logger.log(event + ": " + ret)
-                        else:
-                            self.win.deleteEntries(obj)
-                    elif obj['event'] == 'cue-playlist':
-                        event = obj['event']
-                        del obj['event']
-                        ret = self.state.setCurrentPlaylist(obj)
-                        if ret is not None:
-                            self.logger.log(event + ": " + ret)
-                        else:
-                            self.win.setCurrentPlaylist(obj)
-                    elif obj['event'] == 'cue-item':
-                        event = obj['event']
-                        del obj['event']
-                        ret = self.state.setPlaylistCurrentEntry(obj)
-                        if ret is not None:
-                            self.logger.log(event + ": " + ret)
-                        else:
-                            self.win.cueItem(obj)
-                    elif obj['event'] == 'clear-all':
-                        self.state = MPVVJState.MPVVJState()
-                        self.win.clearState()
-                    elif obj['event'] == 'set-random':
-                        event = obj['event']
-                        del obj['event']
-                        ret = self.state.setPlaylistRandom(obj)
-                        if ret is not None:
-                            self.logger.log(event + ": " + ret)
-                        else:
-                            self.win.setRandom(obj)
-                    elif obj['event'] == 'set-looping':
-                        event = obj['event']
-                        del obj['event']
-                        ret = self.state.setPlaylistLooping(obj)
-                        if ret is not None:
-                            self.logger.log(event + ": " + ret)
-                        else:
-                            self.win.setLooping(obj)
-                    elif obj['event'] == 'set-played':
-                        event = obj['event']
-                        del obj['event']
-                        ret = self.state.setPlaylistLooping(obj)
-                        if ret is not None:
-                            self.logger.log(event + ": " + ret)
-                        else:
-                            self.win.setPlayed(obj)
-                    elif obj['event'] == 'keep-alive':
-                        pass
-                    elif obj['event'] == 'mpv-started':
-                        self.win.MPVStarted()
-                    elif obj['event'] == 'mpv-terminated' or obj['event'] == 'mpv-unexpected-termination':
-                        self.win.MPVStopped()
-                    elif obj['event'] == 'playing':  # ugly hack to make sure cue display is synced
-                        event = obj['event']
-                        del obj['event']
-                        ret = self.state.setPlaylistCurrentEntry(obj)
-                        if ret is not None:
-                            self.logger.log(event + ": " + ret)
-                        else:
-                            self.state.setCurrentPlaylist(obj)
-                            self.state.advance()
-                            current = self.state.getCurrent()
-                            if current is None:
-                                self.win.setCurrentPlaylist({'playlist': None})
-                                self.win.cueItem({'playlist': None, 'item': None})
-                            else:
-                                self.win.setCurrentPlaylist({'playlist': current[0]})
-                                self.win.cueItem({'playlist': current[0], 'item': current[1]})
-                            self.win.playing(obj)
-                    elif obj['event'] == 'stopped':
-                        self.win.stopped()
-                    elif obj['event'] == 'set-mpv-opts':
-                        event = obj['event']
-                        del obj['event']
-                        ret = self.state.setMpvOpts(obj)
-                        if ret is not None:
-                            self.logger.log(event + ": " + ret)
-                        else:
-                            self.win.haveOpts()
-                    elif obj['event'] == 'file-list':
-                        event = obj['event']
-                        del obj['event']
-                        ret = self.win.listFiles(obj)
-                        if ret is not None:
-                            self.logger.log(event + ": " + ret)
+            try:
+                obj = self.socket.getJSONAsObj()
+                if obj is None:
+                    if self.state is None:
+                        if time.monotonic() - self.connectTime > MPVVJClient.CONNECT_TIMEOUT:
+                            self.logger.log("Connection failed (No response.).")
+                            self.disconnect()
                     else:
-                        self.logger.log("Unknown action!")
-                elif 'error' in obj:
-                    if obj['error'] == 'failure':
-                        if 'message' in obj:
-                            self.logger.log("Server reported failure: " + obj['message'])
-                        else:
-                            self.logger.log("Server reported failure but left no message.")
-                    elif obj['error'] == 'success':
-                        self.logger.log("Generic success response.")
+                        if time.monotonic() - self.connectTime > MPVVJClient.KEEPALIVE_PERIOD:
+                            self.sendKeepalive()
+                            self.connectTime = time.monotonic()
+                        if time.monotonic() - self.lastAct > MPVVJClient.TIMEOUT_PERIOD:
+                            self.logger.log("Connection timed out.")
+                            self.disconnect()
+                            self.win.clientDisconnected()
                 else:
-                    self.logger.log("JSON statement with nothing to do!")
+                    self.lastAct = time.monotonic()
+                    if self.state is None:
+                        self.state = MPVVJState.MPVVJState()
+                        self.win.clientConnected()
+                        self.logger.log("Connection established.")
+                    self.logger.log("server --> " + repr(obj))
+
+                    if self.fd is not None:
+                        def readFunc():
+                            line = self.fd.readline()
+                            if line == "":
+                                self.fd.close()
+                                self.fd = None
+                                return
+                            self.logger.log("file --> " + line)
+                            try:
+                                lineObj = json.loads(line)
+                            except json.decoder.JSONDecodeError as e:
+                                self.logger.log("Bad JSON: " + e.args[0])
+                                self.fd.close()
+                                self.fd = None
+                                return
+                            if 'command' not in lineObj:
+                                self.logger.log("No 'command'.")
+                                self.fd.close()
+                                self.fd = None
+                                return
+                            cmd = lineObj['command']
+                            del lineObj['command']
+                            self.sendCommand(cmd, lineObj)
+
+                        readFunc()
+
+                    if 'event' in obj:
+                        if obj['event'] == 'new-playlists':
+                            event = obj['event']
+                            del obj['event']
+                            ret = self.state.newPlaylists(obj)
+                            if ret is not None:
+                                self.logger.log(event + ": " + ret)
+                            else:
+                                self.win.newPlaylists(obj)
+                        elif obj['event'] == 'delete-playlists':
+                            event = obj['event']
+                            del obj['event']
+                            ret = self.state.deletePlaylists(obj)
+                            if ret is not None:
+                                self.logger.log(event + ": " + ret)
+                            else:
+                                self.win.deletePlaylists(obj)
+                        elif obj['event'] == 'add-entries':
+                            event = obj['event']
+                            del obj['event']
+                            ret = self.state.addEntries(obj)
+                            if ret is not None:
+                                self.logger.log(event + ": " + ret)
+                            else:
+                                self.win.addEntries(obj)
+                        elif obj['event'] == 'delete-entries':
+                            event = obj['event']
+                            del obj['event']
+                            ret = self.state.deleteEntries(obj)
+                            if ret is not None:
+                                self.logger.log(event + ": " + ret)
+                            else:
+                                self.win.deleteEntries(obj)
+                        elif obj['event'] == 'cue-playlist':
+                            event = obj['event']
+                            del obj['event']
+                            ret = self.state.setCurrentPlaylist(obj)
+                            if ret is not None:
+                                self.logger.log(event + ": " + ret)
+                            else:
+                                self.win.setCurrentPlaylist(obj)
+                        elif obj['event'] == 'cue-item':
+                            event = obj['event']
+                            del obj['event']
+                            ret = self.state.setPlaylistCurrentEntry(obj)
+                            if ret is not None:
+                                self.logger.log(event + ": " + ret)
+                            else:
+                                self.win.cueItem(obj)
+                        elif obj['event'] == 'clear-all':
+                            self.state = MPVVJState.MPVVJState()
+                            self.win.clearState()
+                        elif obj['event'] == 'set-random':
+                            event = obj['event']
+                            del obj['event']
+                            ret = self.state.setPlaylistRandom(obj)
+                            if ret is not None:
+                                self.logger.log(event + ": " + ret)
+                            else:
+                                self.win.setRandom(obj)
+                        elif obj['event'] == 'set-looping':
+                            event = obj['event']
+                            del obj['event']
+                            ret = self.state.setPlaylistLooping(obj)
+                            if ret is not None:
+                                self.logger.log(event + ": " + ret)
+                            else:
+                                self.win.setLooping(obj)
+                        elif obj['event'] == 'set-played':
+                            event = obj['event']
+                            del obj['event']
+                            ret = self.state.setPlaylistLooping(obj)
+                            if ret is not None:
+                                self.logger.log(event + ": " + ret)
+                            else:
+                                self.win.setPlayed(obj)
+                        elif obj['event'] == 'keep-alive':
+                            pass
+                        elif obj['event'] == 'mpv-started':
+                            self.win.MPVStarted()
+                        elif obj['event'] == 'mpv-terminated' or obj['event'] == 'mpv-unexpected-termination':
+                            self.win.MPVStopped()
+                        elif obj['event'] == 'playing':  # ugly hack to make sure cue display is synced
+                            event = obj['event']
+                            del obj['event']
+                            ret = self.state.setPlaylistCurrentEntry(obj)
+                            if ret is not None:
+                                self.logger.log(event + ": " + ret)
+                            else:
+                                self.state.setCurrentPlaylist(obj)
+                                self.state.advance()
+                                current = self.state.getCurrent()
+                                if current is None:
+                                    self.win.setCurrentPlaylist({'playlist': None})
+                                    self.win.cueItem({'playlist': None, 'item': None})
+                                else:
+                                    self.win.setCurrentPlaylist({'playlist': current[0]})
+                                    self.win.cueItem({'playlist': current[0], 'item': current[1]})
+                                self.win.playing(obj)
+                        elif obj['event'] == 'stopped':
+                            self.win.stopped()
+                        elif obj['event'] == 'set-mpv-opts':
+                            event = obj['event']
+                            del obj['event']
+                            ret = self.state.setMpvOpts(obj)
+                            if ret is not None:
+                                self.logger.log(event + ": " + ret)
+                            else:
+                                self.win.haveOpts()
+                        elif obj['event'] == 'file-list':
+                            event = obj['event']
+                            del obj['event']
+                            ret = self.win.listFiles(obj)
+                            if ret is not None:
+                                self.logger.log(event + ": " + ret)
+                        else:
+                            self.logger.log("Unknown action!")
+                    elif 'error' in obj:
+                        if obj['error'] == 'failure':
+                            if 'message' in obj:
+                                self.logger.log("Server reported failure: " + obj['message'])
+                            else:
+                                self.logger.log("Server reported failure but left no message.")
+                        elif obj['error'] == 'success':
+                            self.logger.log("Generic success response.")
+                    else:
+                        self.logger.log("JSON statement with nothing to do!")
+            except ConnectionRefusedError:
+                self.logger.log("Connection Failed: Connection Refused!")
+                self.disconnect()
+                self.win.clientDisconnected()
+            except ConnectionError as e:
+                self.logger.log("Connection error: " + e.args[0])
+                self.disconnect()
+                self.win.clientDisconnected()
         return GLib.SOURCE_CONTINUE
 
 

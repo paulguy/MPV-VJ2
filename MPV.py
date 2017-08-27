@@ -60,8 +60,8 @@ class MPV:
         return True
 
     @staticmethod
-    def genArgs(args):
-        arglist = []
+    def genArgs(executable, args):
+        arglist = [executable]
 
         for item in args.keys():
             if len(args[item]) == 0:
@@ -77,11 +77,11 @@ class MPV:
 
         opts = self.opts.copy()
         opts.update(self.forcedOpts)
-        arglist = MPV.genArgs(opts)
+        arglist = MPV.genArgs(self.path, opts)
         textArgs = ""
         for arg in arglist:
             textArgs = textArgs + " " + arg
-        print("Running " + self.path + textArgs)
+        print("Running " + textArgs)
         self.mpv = subprocess.Popen(arglist, stdout=subprocess.DEVNULL,
                                     stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 

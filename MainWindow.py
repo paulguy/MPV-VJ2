@@ -23,7 +23,6 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 from gi.repository import Pango
 from gi.repository import Gdk
-from gi.repository import Gio
 
 import PromptDialog
 import SettingsDialog
@@ -81,7 +80,6 @@ class MainWindow(Gtk.Window):
             if self.mpvHandlerID is not None:
                 self.mpvBtn.disconnect(self.mpvHandlerID)
                 self.mpvHandlerID = None
-        self.connectBtn.set_sensitive(sensitive)
         self.addBtn.set_sensitive(sensitive)
         self.addUrl1Btn.set_sensitive(sensitive)
         self.addFiles1Btn.set_sensitive(sensitive)
@@ -349,7 +347,7 @@ class MainWindow(Gtk.Window):
             self.connectBtn.get_children()[0].set_from_icon_name('network-idle', Gtk.IconSize.BUTTON)
             self.connectBtn.disconnect(self.connectHandlerID)
             self.connectHandlerID = self.connectBtn.connect('clicked', self.connectClient)
-            self.connectBtn.set_sensitive(True)
+            self.setSensitive(False)
 
     def MPVStarted(self):
         self.mpvBtn.get_children()[0].set_from_icon_name('go-down', Gtk.IconSize.BUTTON)

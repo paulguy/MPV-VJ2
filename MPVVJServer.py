@@ -168,6 +168,10 @@ class MPVVJServer():
         self.sendEventResponse('mpv-terminated')
 
     def clientMpvUnexpectedTerminated(self):
+        self.mpv.terminate()
+        self.mpv = None
+        self.connected = False
+        self.playing = False
         self.sendEventResponse('mpv-unexpected-termination')
 
     def clientKeepAlive(self):
@@ -186,30 +190,30 @@ class MPVVJServer():
                         except FileNotFoundError:
                             print("File not found, waiting on mpv...")
                 else:
-                    if self.connected:
+                    if not self.connected:
                         self.sendEventResponse("mpv-started")
                         self.connected = True
-                    obj = self.mpv.getNextObj()
+                    try:
+                        obj = self.mpv.getNextObj()
 
-                    if obj is not None:
-                        print("MPV --> " + repr(obj))
-                        if 'event' in obj:
-                            if obj['event'] == 'idle':
-                                if self.playing:
-                                    try:
-                                        self.playCurrentAndAdvance()
-                                    except PlaylistStop:
-                                        self.playing = False
-                                        self.clientStop()
-                                        self.clientCuePlaylist(None)
-                            elif obj['event'] == 'start-file':
-                                self.playing = True
-                                self.clientPlay(self.current[0], self.current[1])
+                        if obj is not None:
+                            print("MPV --> " + repr(obj))
+                            if 'event' in obj:
+                                if obj['event'] == 'idle':
+                                    if self.playing:
+                                        try:
+                                            self.playCurrentAndAdvance()
+                                        except PlaylistStop:
+                                            self.playing = False
+                                            self.clientStop()
+                                            self.clientCuePlaylist(None)
+                                elif obj['event'] == 'start-file':
+                                    self.playing = True
+                                    self.clientPlay(self.current[0], self.current[1])
+                    except ConnectionError as e:
+                        print("MPV connection error: " + e.args[0])
+                        self.clientMpvUnexpectedTerminated()
             else:
-                self.mpv.terminate()
-                self.mpv = None
-                self.connected = False
-                self.playing = False
                 self.clientMpvUnexpectedTerminated()
 
         if not self.socket.connected:
@@ -223,6 +227,10 @@ class MPVVJServer():
                 self.lastAct = time.monotonic()
             except json.decoder.JSONDecodeError as e:
                 self.sendFailureResponse("Bad JSON: " + e.args[0])
+            except ConnectionError as e:
+                print("Client connection error: " + e.args[0])
+                self.reconnectSocket()
+                return True
             if obj is None:
                 if time.monotonic() - self.lastAct > MPVVJServer.TIMEOUT:
                     print("Client connection timed out!")

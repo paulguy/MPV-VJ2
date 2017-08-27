@@ -85,7 +85,7 @@ class JSONSocket(metaclass=abc.ABCMeta):
                 readbuf = self.socket.recv(JSONSocket.RECVREAD)
                 # when a Unix socket closes, we end up just reading empty buffers
                 if len(readbuf) == 0:
-                    break
+                    raise ConnectionError("Connection Lost.")
                 self.recvlinebuff += readbuf
             except BlockingIOError:
                 break
@@ -189,7 +189,7 @@ class JSONTCPSocket(JSONSocket):
 
             if sockaddr is None:
                 if self.host is None:
-                    raise ConnectionError("Couldn't bind to 0.0.0.0:" + str(self.port) + ".")
+                    raise ConnectionError("Couldn't bind to <any>:" + str(self.port) + ".")
                 else:
                     raise ConnectionError("Couldn't bind to " + self.host + " (" + str(self.port) + ").")
 
